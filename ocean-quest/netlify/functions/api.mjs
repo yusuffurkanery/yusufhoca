@@ -65,9 +65,9 @@ async function sessionSecret() {
 }
 
 async function resolveAdminPasswordHash() {
-  if (process.env.OCEAN_ADMIN_PASSWORD_HASH) return process.env.OCEAN_ADMIN_PASSWORD_HASH;
   const currentHash = await store.get('admin/passwordHash', { type: 'text' });
   if (currentHash) return currentHash;
+  if (process.env.OCEAN_ADMIN_PASSWORD_HASH) return process.env.OCEAN_ADMIN_PASSWORD_HASH;
   const fallbackHash = await hashPassword(bootstrapAdminPassword);
   await store.set('admin/passwordHash', fallbackHash);
   return fallbackHash;
@@ -76,10 +76,8 @@ async function resolveAdminPasswordHash() {
 async function initializeSecurity() {
   const configuredHash = process.env.OCEAN_ADMIN_PASSWORD_HASH;
   const currentHash = await store.get('admin/passwordHash', { type: 'text' });
-  if (configuredHash && currentHash !== configuredHash) {
-    await store.set('admin/passwordHash', configuredHash);
-  } else if (!currentHash) {
-    await store.set('admin/passwordHash', await hashPassword(bootstrapAdminPassword));
+  if (!currentHash) {
+    await store.set('admin/passwordHash', configuredHash || await hashPassword(bootstrapAdminPassword));
   }
   await sessionSecret();
 }
