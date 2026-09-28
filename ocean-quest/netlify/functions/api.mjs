@@ -13,7 +13,8 @@ const store = getStore('ocean-quest');
 const collections = new Set(['users', 'homeworks', 'rewards', 'questions']);
 const sessionTtl = 8 * 60 * 60;
 const passwordParams = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
-const bootstrapAdminPasswordHash = 'scrypt$XgeVjFSB82t1gf3r4PLt2Q$TmsUmz9Lk9i5r4D06xNYr8RaehCqII4qtmB2mF-qNiI7NLYpjl51QlZG8o3VrFZcT1PVa3MpzeK3wrQN0FlQDQ';
+const bootstrapAdminPassword = 'Admin123!';
+const bootstrapAdminPasswordHash = 'scrypt$XgeVjFSB82t1gf3r4PLt2Q$3-FCxjOD3tG5Hf4Mvr42gAdopYU_lki33YfFp8xbheORIMGa1rvlqqNZr40FFmbdKF2wZny76g2ATafhElFCkQ';
 const fishLevels = [
   { id: 1, minXp: 0, starMulti: 1 }, { id: 2, minXp: 200, starMulti: 1.1 },
   { id: 3, minXp: 500, starMulti: 1.2 }, { id: 4, minXp: 1000, starMulti: 1.3 },
@@ -65,7 +66,10 @@ async function sessionSecret() {
 
 async function initializeSecurity() {
   const currentHash = await store.get('admin/passwordHash', { type: 'text' });
-  if (!currentHash) await store.set('admin/passwordHash', process.env.OCEAN_ADMIN_PASSWORD_HASH ?? bootstrapAdminPasswordHash);
+  if (!currentHash) {
+    const fallbackHash = process.env.OCEAN_ADMIN_PASSWORD_HASH ?? await hashPassword(bootstrapAdminPassword);
+    await store.set('admin/passwordHash', fallbackHash);
+  }
   await sessionSecret();
 }
 
