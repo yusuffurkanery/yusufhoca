@@ -183,9 +183,10 @@ function requestIp(request) {
     ?? 'unknown';
 }
 
-async function loginIsRateLimited(request) {
-  const ipHash = createHash('sha256').update(requestIp(request)).digest('hex');
-  const key = `login-attempts/${ipHash}`;
+async function loginIsRateLimited(request, username) {
+  const attemptKey = `${requestIp(request)}\0${username}`;
+  const keyHash = createHash('sha256').update(attemptKey).digest('hex');
+  const key = `login-attempts/${keyHash}`;
   const record = await store.get(key, { type: 'json' }) ?? { count: 0, lockedUntil: 0 };
   return { key, record, limited: record.lockedUntil > Date.now() };
 }
@@ -215,11 +216,11 @@ function validCollection(name) {
 }
 
 async function handleLogin(request) {
-  const { key, record, limited } = await loginIsRateLimited(request);
-  if (limited) return response(429, { error: 'Çok fazla başarısız deneme. 15 dakika sonra tekrar deneyin.' });
-
   const body = await readBody(request);
   const username = normalizeUsername(body.username);
+  const { key, record, limited } = await loginIsRateLimited(request, username);
+  if (limited) return response(429, { error: 'Çok fazla başarısız deneme. 15 dakika sonra tekrar deneyin.' });
+
   const password = String(body.password ?? '');
   let user = null;
   let authenticated = false;
