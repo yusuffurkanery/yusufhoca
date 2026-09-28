@@ -64,11 +64,22 @@ async function sessionSecret() {
   return value;
 }
 
-async function initializeSecurity() {
+async function resolveAdminPasswordHash() {
+  if (process.env.OCEAN_ADMIN_PASSWORD_HASH) return process.env.OCEAN_ADMIN_PASSWORD_HASH;
   const currentHash = await store.get('admin/passwordHash', { type: 'text' });
-  if (!currentHash) {
-    const fallbackHash = process.env.OCEAN_ADMIN_PASSWORD_HASH ?? await hashPassword(bootstrapAdminPassword);
-    await store.set('admin/passwordHash', fallbackHash);
+  if (currentHash) return currentHash;
+  const fallbackHash = await hashPassword(bootstrapAdminPassword);
+  await store.set('admin/passwordHash', fallbackHash);
+  return fallbackHash;
+}
+
+async function initializeSecurity() {
+  const configuredHash = process.env.OCEAN_ADMIN_PASSWORD_HASH;
+  const currentHash = await store.get('admin/passwordHash', { type: 'text' });
+  if (configuredHash && currentHash !== configuredHash) {
+    await store.set('admin/passwordHash', configuredHash);
+  } else if (!currentHash) {
+    await store.set('admin/passwordHash', await hashPassword(bootstrapAdminPassword));
   }
   await sessionSecret();
 }
@@ -230,8 +241,7 @@ async function handleLogin(request) {
   let authenticated = false;
 
   if (username === 'admin') {
-    const encodedHash = await store.get('admin/passwordHash', { type: 'text' })
-      ?? bootstrapAdminPasswordHash;
+    const encodedHash = await resolveAdminPasswordHash();
     authenticated = await verifyPassword(password, encodedHash);
     user = { role: 'admin', username: 'admin' };
   } else if (validUsername(username)) {
@@ -359,8 +369,7 @@ async function handleAdminPasswordChange(request, actor) {
   if (newPassword.length < 12 || newPassword.length > 128) {
     return response(400, { error: 'Yeni şifre 12-128 karakter arasında olmalı.' });
   }
-  const currentHash = await store.get('admin/passwordHash', { type: 'text' })
-    ?? bootstrapAdminPasswordHash;
+  const currentHash = await resolveAdminPasswordHash();
   if (!await verifyPassword(currentPassword, currentHash)) {
     return response(401, { error: 'Mevcut şifre hatalı.' });
   }

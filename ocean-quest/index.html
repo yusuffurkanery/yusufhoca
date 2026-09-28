@@ -713,16 +713,20 @@
 
         window.renderAdminRewards = function() {
             const list = document.getElementById('admin-rewards-list');
-            list.innerHTML = window.rewards.length ? window.rewards.map(r => `
+            list.innerHTML = window.rewards.length ? window.rewards.map(r => {
+                const rewardType = (r.type === 'physical' || r.type === 'fiziksel') ? 'Fiziksel' : 'Sanal';
+                const rewardDesc = r.description ?? r.desc ?? r.details ?? 'Açıklama eklenmedi.';
+                return `
                 <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl text-sm border border-slate-100">
                     <div>
-                        <b class="text-yellow-900">${r.name}</b> (${r.type === 'virtual' ? 'Sanal' : 'Fiziksel'})
-                        <div class="text-xs text-slate-500 mt-1">${r.description || r.desc || 'Açıklama eklenmedi.'}</div>
+                        <b class="text-yellow-900">${r.name}</b> (${rewardType})
+                        <div class="text-xs text-slate-500 mt-1">${rewardDesc}</div>
                         <div class="text-xs text-slate-500 mt-1">${r.price} ⭐ | ${r.emoji || '🎁'}</div>
                     </div>
                     <button onclick="window.deleteReward('${r.dbId}')" class="text-red-400 font-bold px-2 py-1 bg-white rounded border hover:bg-red-50">&times;</button>
                 </div>
-            `).join('') : '<p class="text-xs text-slate-500">Ödül yok.</p>';
+            `;
+            }).join('') : '<p class="text-xs text-slate-500">Ödül yok.</p>';
         };
 
         window.toggleRewardTypeInputs = function() {
@@ -738,7 +742,8 @@
 
         window.handleAddReward = async function(e) {
             e.preventDefault();
-            const type = document.getElementById('new-rew-type').value;
+            const rawType = document.getElementById('new-rew-type').value;
+            const type = rawType === 'physical' ? 'physical' : 'virtual';
             const price = parseInt(document.getElementById('new-rew-price').value);
             let name = '', emoji = '', accType = 'none', effectClass = '', description = '';
 
@@ -752,7 +757,8 @@
                 description = document.getElementById('new-rew-pdesc').value.trim();
             }
 
-            await dbAdd('rewards', { type, price, name, emoji, description, accType, effectClass });
+            const reward = { type, price, name, emoji, description, desc: description, accType, effectClass };
+            await dbAdd('rewards', reward);
             e.target.reset();
         };
         
@@ -886,9 +892,10 @@
             vCont.innerHTML = ''; pCont.innerHTML = '';
             
             window.rewards.forEach(item => {
+                const type = item.type === 'physical' ? 'physical' : 'virtual';
                 const canAfford = window.currentUser.stars >= item.price;
-                const isOwned = item.type === 'virtual' && (window.currentUser.accessories || []).some(a => a.dbId === item.dbId);
-                const description = item.description || item.desc || '';
+                const isOwned = type === 'virtual' && (window.currentUser.accessories || []).some(a => a.dbId === item.dbId);
+                const description = item.description ?? item.desc ?? '';
                 let btnHtml = isOwned ? `<button disabled class="w-full mt-auto font-bold py-1.5 rounded-lg bg-green-100 text-green-700 text-xs">Kuşanıldı</button>` 
                     : `<button onclick="window.buyItem('${item.dbId}')" class="w-full mt-auto font-bold py-1.5 rounded-lg flex items-center justify-center gap-1 text-xs ${canAfford ? 'bg-yellow-400 text-yellow-900 border border-yellow-500' : 'bg-slate-100 text-slate-400 border border-slate-200'}">⭐ ${item.price}</button>`;
 
@@ -899,7 +906,7 @@
                     <p class="text-[10px] text-slate-500 mt-1 min-h-[24px]">${description}</p>
                     ${btnHtml}
                 </div>`;
-                if(item.type === 'virtual') vCont.innerHTML += card; else pCont.innerHTML += card;
+                if(type === 'virtual') vCont.innerHTML += card; else pCont.innerHTML += card;
             });
             if(!vCont.innerHTML) vCont.innerHTML = '<p class="text-xs text-slate-500 col-span-full">Eşya yok.</p>';
             if(!pCont.innerHTML) pCont.innerHTML = '<p class="text-xs text-slate-500 col-span-full">Ödül yok.</p>';
