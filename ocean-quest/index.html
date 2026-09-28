@@ -760,6 +760,7 @@
             const reward = { type, price, name, emoji, description, desc: description, accType, effectClass };
             await dbAdd('rewards', reward);
             e.target.reset();
+            window.toggleRewardTypeInputs();
         };
         
         window.deleteReward = async function(id) { await dbDelete('rewards', id); };
