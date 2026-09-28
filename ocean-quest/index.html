@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+<!-- This site is hosted on Netlify. Anyone can build and deploy a site
+     like this one for free: https://netlify.new/?utm_campaign=loops&utm_source=ai-legible&utm_medium=owned&utm_content=comment&utm_id=3322fc3f-1411-4457-9883-8c711f0511ab
+     Netlify hosting facts for this site: static/SSR served via Netlify Edge. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ocean Quest: Sınıf Kolonisi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ocean-top: #00b4db;
+            --ocean-bottom: #000046;
+        }
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f0f8ff;
+            -webkit-tap-highlight-color: transparent;
+            overflow: hidden; 
+            touch-action: none; /* Mobilde kaydırmayı engeller (oyun için) */
+        }
+        h1, h2, h3, .font-display { font-family: 'Fredoka One', cursive; }
+        
+        /* Okyanus Arkaplanı */
+        .ocean-bg {
+            background: linear-gradient(180deg, var(--ocean-top) 0%, var(--ocean-bottom) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Yüzen Varlıklar */
+        .moving-entity {
+            position: absolute;
+            transition: transform 0.1s linear;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .moving-entity.is-me { z-index: 20; }
+
+        /* Balık Konteyneri */
+        .fish-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            line-height: 1;
+        }
+
+        /* Aksesuarlar ve Auralar */
+        .accessory { position: absolute; pointer-events: none; z-index: 2; }
+        .acc-hat { top: -25%; right: 15%; font-size: 0.6em; transform: rotate(15deg); filter: drop-shadow(2px 4px 2px rgba(0,0,0,0.4)); }
+        .acc-glasses { top: 25%; right: 0%; font-size: 0.55em; z-index: 3; filter: drop-shadow(1px 2px 1px rgba(0,0,0,0.5)); }
+        .acc-necklace { bottom: -10%; left: 10%; font-size: 0.5em; z-index: 3; }
+
+        .username-tag {
+            background: rgba(0,0,0,0.65); color: white; padding: 3px 10px; border-radius: 12px;
+            font-size: 0.75rem; font-weight: bold; margin-top: 15px; backdrop-filter: blur(4px);
+            white-space: nowrap; border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .glow-fire { filter: drop-shadow(0 0 10px #ff4500) drop-shadow(0 0 20px #ff0000); animation: pulse-fire 1.5s infinite alternate; }
+        @keyframes pulse-fire { 0% { filter: drop-shadow(0 0 10px #ff4500) drop-shadow(0 0 20px #ff0000); } 100% { filter: drop-shadow(0 0 20px #ff4500) drop-shadow(0 0 40px #ff8c00); } }
+
+        .glow-ice { filter: drop-shadow(0 0 10px #00ffff) drop-shadow(0 0 20px #00bfff); animation: pulse-ice 1.5s infinite alternate; }
+        @keyframes pulse-ice { 0% { filter: drop-shadow(0 0 10px #00ffff) drop-shadow(0 0 20px #00bfff); } 100% { filter: drop-shadow(0 0 20px #00ffff) drop-shadow(0 0 40px #1e90ff); } }
+
+        .glow-electric { filter: drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 20px #ffa500); animation: flash-lightning 0.3s infinite alternate; }
+        @keyframes flash-lightning { 0% { filter: drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 20px #ffa500); } 100% { filter: drop-shadow(0 0 25px #ffffff) drop-shadow(0 0 45px #ffd700); } }
+        
+        .glow-magic { filter: drop-shadow(0 0 15px #9400d3) drop-shadow(0 0 30px #8a2be2); animation: spin-magic 3s infinite linear; }
+
+        .question-bubble { font-size: 2.5rem; animation: float-pulse 2s infinite ease-in-out; filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.9)); cursor: pointer; }
+        @keyframes float-pulse { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-15px) scale(1.15); } }
+
+        /* Yükleme ve Arayüz Kontrolleri */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        
+        .view-section { display: none; height: 100vh; width: 100vw; overflow: hidden; }
+        .view-section.active { display: flex; }
+        
+        .admin-tab-content { display: none; }
+        .admin-tab-content.active { display: block; }
+        
+        #loading-overlay { 
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.98); 
+            z-index: 9999; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; color: white;
+            transition: opacity 0.5s ease;
+        }
+
+        @media (max-width: 768px) {
+            .ocean-bg { padding-bottom: 80px; } /* Alt menü boşluğu */
+            .mobile-bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; background: white; border-top: 1px solid #e2e8f0; display: flex; padding-bottom: max(env(safe-area-inset-bottom), 10px); }
+            .mobile-top-bar { position: relative; z-index: 40; }
+            #main-area { height: calc(100vh - 140px); } /* Header ve Bottom Nav arası boyut */
+        }
+
+        /* Sanal Joystick (Sadece Mobilde) */
+        .touch-btn {
+            background: rgba(255, 255, 255, 0.3); border: 2px solid rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(4px); color: white; font-weight: bold; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center; user-select: none;
+            transition: background 0.1s;
+        }
+        .touch-btn:active { background: rgba(255, 255, 255, 0.6); }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div id="loading-overlay">
+        <div class="text-7xl animate-bounce mb-6">🌊</div>
+        <h2 class="text-2xl md:text-3xl font-display mb-3 text-blue-300 text-center px-4">Okyanus Yükleniyor...</h2>
+        <p class="text-slate-300 font-semibold text-center px-4 text-sm md:text-base" id="loading-text">Veriler buluttan senkronize ediliyor.</p>
+    </div>
+
+    <div id="auth-view" class="view-section flex-col items-center justify-center ocean-bg px-4">
+        <div class="bg-white/95 backdrop-blur-md p-8 md:p-10 rounded-3xl shadow-2xl max-w-md w-full border-4 border-blue-300">
+            <div class="text-6xl text-center mb-4">🌊</div>
+            <h1 class="text-3xl md:text-4xl font-display text-blue-900 text-center mb-2">Ocean Quest</h1>
+            <p class="text-center text-slate-500 font-bold mb-8 text-sm md:text-base">Eğitim & Gelişim Platformu</p>
+
+            <form id="auth-form" onsubmit="window.handleLogin(event)" class="space-y-4 md:space-y-5">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Kullanıcı Adı</label>
+                    <input type="text" id="auth-username" required placeholder="Öğrenci veya admin" class="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:outline-none transition-colors">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Şifre</label>
+                    <input type="password" id="auth-password" required placeholder="Şifrenizi girin" class="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:outline-none transition-colors">
+                </div>
+                <button type="submit" id="login-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition-all active:scale-95 text-lg mt-2">
+                    Okyanusa Dal
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Standart Bilgi Modalı -->
+    <div id="modal-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden z-[100] flex items-center justify-center opacity-0 transition-opacity duration-300 p-4">
+        <div id="modal-content" class="bg-white p-6 md:p-8 rounded-3xl shadow-2xl max-w-sm w-full transform scale-95 transition-transform duration-300 text-center border-4 border-blue-200">
+            <div id="modal-icon" class="text-6xl md:text-7xl mb-4 animate-bounce">✨</div>
+            <h3 id="modal-title" class="text-2xl md:text-3xl font-display text-blue-900 mb-3">Başarılı!</h3>
+            <p id="modal-text" class="text-slate-600 mb-6 font-semibold text-base md:text-lg">İşlem tamamlandı.</p>
+            <div id="modal-rewards" class="flex justify-center gap-2 md:gap-4 mb-6 hidden flex-wrap">
+                <div class="bg-blue-50 px-4 py-2 rounded-xl text-blue-700 font-bold border-2 border-blue-200 shadow-sm"><span id="modal-xp-val"></span> XP</div>
+                <div class="bg-yellow-50 px-4 py-2 rounded-xl text-yellow-700 font-bold border-2 border-yellow-200 shadow-sm"><span id="modal-star-val"></span> ⭐</div>
+            </div>
+            <button onclick="window.closeModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition-colors active:scale-95 text-lg">
+                Harika!
+            </button>
+        </div>
+    </div>
+
+    <!-- Soru (Quiz) Modalı -->
+    <div id="quiz-modal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md hidden z-[120] flex items-center justify-center p-4">
+        <div class="bg-white p-6 md:p-8 rounded-3xl shadow-2xl max-w-lg w-full relative overflow-hidden border-4 border-yellow-400">
+            <div class="text-5xl md:text-6xl text-center mb-4 animate-pulse">❓</div>
+            <h3 class="text-lg md:text-xl font-bold text-slate-500 text-center mb-2">Sürpriz Soru Yakaladın!</h3>
+            <p id="quiz-question-text" class="text-xl md:text-2xl font-display text-blue-900 text-center mb-6 leading-snug">Soru buraya gelecek?</p>
+            
+            <div id="quiz-options" class="flex flex-col gap-2 md:gap-3"></div>
+            
+            <div class="mt-4 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <span class="font-bold text-slate-600">Ödül: <span id="quiz-reward-text" class="text-yellow-600"></span></span>
+                <button onclick="window.closeQuizModal()" class="text-slate-400 hover:text-red-500 font-bold underline transition-colors">Vazgeç</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADMİN PANELİ (Masaüstü Odaklı Bırakılabilir, Admin Genelde PC'den Girer) -->
+    <div id="admin-view" class="view-section flex-col bg-slate-50 overflow-y-auto">
+        <header class="bg-blue-900 text-white p-4 shadow-lg flex justify-between items-center z-10 sticky top-0">
+            <h2 class="text-xl md:text-2xl font-display flex items-center gap-2">👨‍🏫 Admin <span id="cloud-status" class="text-xs bg-green-500 px-2 py-1 rounded-full font-bold">☁️ Aktif</span></h2>
+            <div class="flex gap-2">
+                <button onclick="window.openPasswordModal()" class="bg-blue-700 hover:bg-blue-600 px-4 py-2 rounded-xl font-bold text-xs md:text-sm shadow-md transition-colors">Şifre Değiştir</button>
+                <button onclick="window.logout()" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl font-bold text-xs md:text-sm shadow-md transition-colors active:scale-95">Çıkış</button>
+            </div>
+        </header>
+        
+        <div class="bg-white border-b border-slate-200 flex overflow-x-auto shadow-sm sticky top-[60px] md:top-[68px] z-10 w-full">
+            <button onclick="window.switchAdminTab('students')" id="atab-students" class="admin-tab-btn px-4 py-3 font-bold text-blue-600 border-b-4 border-blue-600 whitespace-nowrap">👥 Öğrenciler</button>
+            <button onclick="window.switchAdminTab('homeworks')" id="atab-homeworks" class="admin-tab-btn px-4 py-3 font-bold text-slate-500 border-b-4 border-transparent whitespace-nowrap">📚 Ödevler</button>
+            <button onclick="window.switchAdminTab('approvals')" id="atab-approvals" class="admin-tab-btn px-4 py-3 font-bold text-slate-500 border-b-4 border-transparent relative whitespace-nowrap">
+                ✅ Onaylar <span id="pending-badge" class="absolute top-1 right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full hidden shadow">0</span>
+            </button>
+            <button onclick="window.switchAdminTab('rewards')" id="atab-rewards" class="admin-tab-btn px-4 py-3 font-bold text-slate-500 border-b-4 border-transparent whitespace-nowrap">🎁 Ödüller</button>
+            <button onclick="window.switchAdminTab('questions')" id="atab-questions" class="admin-tab-btn px-4 py-3 font-bold text-slate-500 border-b-4 border-transparent whitespace-nowrap">❓ Sorular</button>
+        </div>
+
+        <div class="p-4 md:p-8 max-w-6xl w-full mx-auto pb-20">
+            <!-- Öğrenci Tab -->
+            <div id="acontent-students" class="admin-tab-content active">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-6">
+                    <h3 class="text-xl font-bold mb-4 border-b pb-2 text-blue-800">🐟 Yeni Öğrenci Kaydı</h3>
+                    <form onsubmit="window.handleAddUser(event)" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <input type="text" id="new-user-name" required placeholder="Kullanıcı Adı" class="p-3 border-2 border-slate-200 rounded-xl outline-none">
+                        <input type="password" id="new-user-pass" required minlength="10" autocomplete="new-password" placeholder="Şifre (en az 10 karakter)" class="p-3 border-2 border-slate-200 rounded-xl outline-none">
+                        <input type="text" id="new-user-class" required placeholder="Sınıf (Örn: 6-A)" class="p-3 border-2 border-slate-200 rounded-xl outline-none uppercase">
+                        <button type="submit" class="bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 shadow-md">Kaydet</button>
+                    </form>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                    <h4 class="font-bold text-slate-700 mb-4">Sistemdeki Öğrenciler</h4>
+                    <div id="admin-students-list" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <!-- Ödev Tab -->
+            <div id="acontent-homeworks" class="admin-tab-content">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-6">
+                    <h3 class="text-xl font-bold mb-4 border-b pb-2 text-green-800">📚 Yeni Ödev Tanımla</h3>
+                    <form onsubmit="window.handleAddHomework(event)" class="space-y-3">
+                        <input type="text" id="new-hw-title" required placeholder="Ödev Başlığı" class="w-full p-3 border-2 border-slate-200 rounded-xl font-bold outline-none">
+                        <textarea id="new-hw-desc" required placeholder="Açıklama" class="w-full p-3 border-2 border-slate-200 rounded-xl outline-none h-20"></textarea>
+                        <input type="text" id="new-hw-class" placeholder="Hedef Sınıf (Tümü için boş bırak)" class="w-full p-3 border-2 border-slate-200 rounded-xl uppercase outline-none">
+                        <div class="flex gap-3">
+                            <input type="number" id="new-hw-xp" required placeholder="Verilecek XP" class="w-1/2 p-3 border-2 border-slate-200 rounded-xl text-blue-600 font-bold outline-none">
+                            <input type="number" id="new-hw-stars" required placeholder="Verilecek ⭐" class="w-1/2 p-3 border-2 border-slate-200 rounded-xl text-yellow-500 font-bold outline-none">
+                        </div>
+                        <button type="submit" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl">Ödevi Yayınla</button>
+                    </form>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                    <div id="admin-homeworks-list" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <!-- Onaylar Tab -->
+            <div id="acontent-approvals" class="admin-tab-content">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                    <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-800">✅ Öğretmen Onayı Bekleyenler</h3>
+                    <div id="admin-approvals-list" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- Ödül Tab -->
+            <div id="acontent-rewards" class="admin-tab-content">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-6">
+                    <h3 class="text-xl font-bold mb-4 border-b pb-2 text-yellow-800">🎁 Mağazaya Ödül Ekle</h3>
+                    <form onsubmit="window.handleAddReward(event)" class="space-y-4">
+                        <div class="flex gap-4">
+                            <select id="new-rew-type" onchange="window.toggleRewardTypeInputs()" class="w-1/2 p-3 border-2 border-slate-200 rounded-xl font-bold outline-none">
+                                <option value="virtual">Sanal Aksesuar</option>
+                                <option value="physical">Fiziksel Ödül</option>
+                            </select>
+                            <input type="number" id="new-rew-price" required placeholder="Fiyat (Yıldız)" class="w-1/2 p-3 border-2 border-slate-200 rounded-xl font-bold text-yellow-600 outline-none">
+                        </div>
+                        
+                        <div id="virtual-options-group" class="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                            <select id="new-rew-acc-type" class="w-full p-3 border-2 border-blue-100 rounded-xl mb-3 font-semibold outline-none">
+                                <optgroup label="✨ Auralar (Sadece 1 tane takılabilir)">
+                                    <option value="aura|glow-fire|🔥">Ateş Aurası</option>
+                                    <option value="aura|glow-ice|❄️">Buz Aurası</option>
+                                    <option value="aura|glow-electric|⚡">Yıldırım Aurası</option>
+                                </optgroup>
+                                <optgroup label="🎩 Şapkalar">
+                                    <option value="hat|none|👑">Kral Tacı</option>
+                                    <option value="hat|none|🎩">Sihirbaz Şapkası</option>
+                                    <option value="hat|none|🧢">Spor Şapka</option>
+                                </optgroup>
+                                <optgroup label="🕶️ Gözlükler & Aksesuarlar">
+                                    <option value="glasses|none|🕶️">Havalı Gözlük</option>
+                                    <option value="glasses|none|🥽">Dalgıç Gözlüğü</option>
+                                    <option value="necklace|none|💎">Elmas Kolye</option>
+                                </optgroup>
+                            </select>
+                            <input type="text" id="new-rew-vname" placeholder="Eşya Adı (Örn: Alevli Koruma)" class="w-full p-3 border-2 border-blue-100 rounded-xl outline-none">
+                        </div>
+
+                        <div id="physical-options-group" class="bg-yellow-50 p-4 rounded-xl border border-yellow-200 hidden">
+                            <div class="flex gap-3">
+                                <select id="new-rew-emoji" class="w-1/3 p-3 border-2 border-yellow-100 rounded-xl text-xl outline-none">
+                                    <option value="🍫">🍫 Çikolata</option><option value="🍬">🍬 Şeker</option><option value="📚">📚 Kitap</option><option value="🎟️">🎟️ Özel İzin</option><option value="⭐">⭐ Yıldız Rozeti</option>
+                                </select>
+                                <input type="text" id="new-rew-pname" placeholder="Ödül Adı (Örn: Çikolata Ismarlama)" class="w-2/3 p-3 border-2 border-yellow-100 rounded-xl outline-none">
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full bg-yellow-500 text-white font-bold py-3 rounded-xl hover:bg-yellow-600">Mağazaya Ekle</button>
+                    </form>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                    <div id="admin-rewards-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                </div>
+            </div>
+
+            <!-- Sorular Tab -->
+            <div id="acontent-questions" class="admin-tab-content">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-6">
+                    <h3 class="text-xl font-bold mb-4 border-b pb-2 text-purple-800">❓ Soru Havuzuna Ekle</h3>
+                    <form onsubmit="window.handleAddQuestion(event)" class="space-y-3">
+                        <textarea id="new-q-text" required placeholder="Soruyu yaz..." class="w-full p-3 border-2 border-slate-200 rounded-xl h-20 outline-none"></textarea>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="text" id="new-q-opt0" required placeholder="A Şıkkı" class="p-3 border-2 border-slate-200 rounded-xl outline-none">
+                            <input type="text" id="new-q-opt1" required placeholder="B Şıkkı" class="p-3 border-2 border-slate-200 rounded-xl outline-none">
+                            <input type="text" id="new-q-opt2" required placeholder="C Şıkkı" class="p-3 border-2 border-slate-200 rounded-xl outline-none">
+                            <input type="text" id="new-q-opt3" required placeholder="D Şıkkı" class="p-3 border-2 border-slate-200 rounded-xl outline-none">
+                        </div>
+                        <div class="flex gap-3">
+                            <select id="new-q-correct" class="w-1/2 p-3 border-2 border-slate-200 rounded-xl font-bold bg-purple-50 text-purple-700 outline-none">
+                                <option value="0">Doğru: A</option><option value="1">Doğru: B</option><option value="2">Doğru: C</option><option value="3">Doğru: D</option>
+                            </select>
+                            <input type="text" id="new-q-class" placeholder="Sınıf (Boş=Tümü)" class="w-1/2 p-3 border-2 border-slate-200 rounded-xl uppercase outline-none">
+                        </div>
+                        <button type="submit" class="w-full bg-purple-600 text-white font-bold py-3 rounded-xl">Soruyu Ekle</button>
+                    </form>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                    <div id="admin-questions-list" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ÖĞRENCİ PANELİ (Mobil App Görünümüne Uygun) -->
+    <div id="student-view" class="view-section flex-col bg-slate-50 relative">
+        
+        <!-- Üst Bilgi Çubuğu (Top Bar) -->
+        <header class="mobile-top-bar bg-white shadow-sm z-30 px-4 py-3 border-b border-slate-200 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-3">
+                <div id="topbar-fish-icon" class="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-3xl border-2 border-blue-200 shadow-inner relative overflow-hidden shrink-0"></div>
+                <div class="flex flex-col">
+                    <div class="flex items-center gap-2">
+                        <h2 id="topbar-username" class="text-lg font-display text-blue-900 leading-none">Öğrenci</h2>
+                        <span id="topbar-class" class="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded uppercase">Sınıf</span>
+                    </div>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-xs font-bold text-yellow-700 bg-yellow-100 px-1.5 py-0.5 rounded border border-yellow-200" id="topbar-stars">0 ⭐</span>
+                        <span class="text-xs font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200" id="topbar-xp">0 XP</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="window.showInfoModal()" class="text-2xl text-indigo-500 bg-indigo-50 w-10 h-10 rounded-full border border-indigo-200 shadow-sm flex items-center justify-center">📖</button>
+                <button onclick="window.logout()" class="text-xl text-red-500 bg-red-50 w-10 h-10 rounded-full border border-red-200 shadow-sm flex items-center justify-center">🚪</button>
+            </div>
+        </header>
+
+        <!-- İçerik Alanı (Okyanus veya Menüler) -->
+        <main class="flex-1 relative bg-slate-50 overflow-hidden flex flex-col z-10 w-full" id="main-area">
+            
+            <!-- Masaüstü Yönlendirme İpucu -->
+            <div id="controls-hint" class="hidden md:block absolute top-4 right-4 bg-black/60 text-white px-4 py-2 rounded-xl backdrop-blur-md z-30 pointer-events-none shadow-lg border border-white/20">
+                <p class="font-bold text-xs mb-1">Hareket: <span class="text-blue-300">W, A, S, D</span></p>
+                <p class="font-bold text-xs">Avlan: <span class="text-red-400">BOŞLUK</span></p>
+            </div>
+
+            <!-- Mobil Sanal Joystick (Sadece Okyanus/Koloni açıkken mobilde görünür) -->
+            <div id="mobile-controls" class="md:hidden absolute inset-0 z-30 pointer-events-none">
+                <!-- Yön Tuşları -->
+                <div class="absolute bottom-[20%] left-6 flex flex-col items-center gap-2 pointer-events-auto opacity-70">
+                    <button id="btn-up" class="touch-btn w-12 h-12">W</button>
+                    <div class="flex gap-2">
+                        <button id="btn-left" class="touch-btn w-12 h-12">A</button>
+                        <button id="btn-down" class="touch-btn w-12 h-12">S</button>
+                        <button id="btn-right" class="touch-btn w-12 h-12">D</button>
+                    </div>
+                </div>
+                <!-- Avlanma Tuşu -->
+                <div class="absolute bottom-[20%] right-6 pointer-events-auto opacity-80">
+                    <button id="btn-hunt" class="w-16 h-16 rounded-full bg-red-500/60 backdrop-blur border-2 border-white/50 text-white font-bold flex items-center justify-center shadow-lg active:bg-red-600/80 transition-colors text-xs">AVLAN</button>
+                </div>
+            </div>
+
+            <!-- GÖRÜNÜMLER -->
+            <div id="view-aquarium" class="absolute inset-0 ocean-bg transition-opacity duration-300">
+                <h2 class="absolute top-4 left-4 text-white/40 text-xl md:text-3xl font-display z-20 pointer-events-none">Özel Akvaryumun</h2>
+                <div id="entity-container-aquarium" class="absolute inset-0 z-20"></div>
+            </div>
+
+            <div id="view-colony" class="absolute inset-0 ocean-bg opacity-0 pointer-events-none transition-opacity duration-300 bg-gradient-to-b from-[#0284c7] to-[#0f172a]">
+                <div class="absolute top-4 left-4 z-20 text-white flex flex-col gap-1 pointer-events-none">
+                    <h2 class="text-xl md:text-3xl font-display" id="colony-title">Sınıf Kolonisi</h2>
+                    <p class="text-[10px] md:text-xs bg-white/10 backdrop-blur-md px-2 py-1 rounded-full w-max border border-white/20 font-bold" id="ocean-size-text">Hesaplanıyor...</p>
+                </div>
+                <div id="entity-container-colony" class="absolute inset-0 z-20"></div>
+            </div>
+
+            <div id="view-homeworks" class="absolute inset-0 bg-slate-50 overflow-y-auto p-4 md:p-8 opacity-0 pointer-events-none transition-opacity duration-300 z-40 pb-32">
+                <h2 class="text-2xl md:text-3xl font-display text-blue-900 mb-6">📚 Görev Panosu</h2>
+                <div id="homework-list" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
+            </div>
+
+            <div id="view-store" class="absolute inset-0 bg-slate-50 overflow-y-auto p-4 md:p-8 opacity-0 pointer-events-none transition-opacity duration-300 z-40 pb-32">
+                <h2 class="text-2xl md:text-3xl font-display text-blue-900 mb-6">🛒 Mağaza</h2>
+                
+                <div class="mb-8 bg-blue-50/80 p-5 md:p-8 rounded-3xl border-2 border-blue-200">
+                    <h3 class="text-xl font-bold text-blue-900 border-b-2 border-blue-200 pb-2 mb-4">✨ Kıyafet & Auralar</h3>
+                    <div id="virtual-store-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-5"></div>
+                </div>
+                
+                <div class="bg-yellow-50/80 p-5 md:p-8 rounded-3xl border-2 border-yellow-200">
+                    <h3 class="text-xl font-bold text-yellow-900 border-b-2 border-yellow-200 pb-2 mb-4">🎁 Özel Ödüller</h3>
+                    <div id="physical-store-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-5"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Alt Gezinme Çubuğu (Bottom Navigation - Mobil ve Desktop) -->
+        <nav class="mobile-bottom-nav md:relative md:w-full bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none z-50 flex justify-around md:justify-center md:gap-4 p-2 md:p-4 shrink-0">
+            <button onclick="window.switchTab('aquarium')" id="tab-aquarium" class="nav-btn flex-1 md:flex-none md:w-40 flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 p-2 md:px-4 md:py-3 rounded-xl bg-blue-600 text-white font-bold transition-all shadow-md text-xs md:text-sm">
+                <span class="text-xl md:text-base">🌊</span> <span>Akvaryum</span>
+            </button>
+            <button onclick="window.switchTab('colony')" id="tab-colony" class="nav-btn flex-1 md:flex-none md:w-40 flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 p-2 md:px-4 md:py-3 rounded-xl bg-slate-100 text-slate-600 font-bold transition-all border border-slate-200 text-xs md:text-sm">
+                <span class="text-xl md:text-base">🐠</span> <span>Koloni</span>
+            </button>
+            <button onclick="window.switchTab('homeworks')" id="tab-homeworks" class="nav-btn flex-1 md:flex-none md:w-40 flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 p-2 md:px-4 md:py-3 rounded-xl bg-slate-100 text-slate-600 font-bold transition-all border border-slate-200 text-xs md:text-sm relative">
+                <span class="text-xl md:text-base">📚</span> <span>Ödevler</span>
+                <span id="hw-badge" class="absolute top-1 right-2 md:top-2 md:right-2 w-3 h-3 bg-red-500 rounded-full hidden border border-white"></span>
+            </button>
+            <button onclick="window.switchTab('store')" id="tab-store" class="nav-btn flex-1 md:flex-none md:w-40 flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 p-2 md:px-4 md:py-3 rounded-xl bg-slate-100 text-slate-600 font-bold transition-all border border-slate-200 text-xs md:text-sm">
+                <span class="text-xl md:text-base">🛒</span> <span>Mağaza</span>
+            </button>
+        </nav>
+    </div>
+
+    <div id="info-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden z-[110] flex items-center justify-center p-4">
+        <div class="bg-white p-6 rounded-3xl shadow-2xl max-w-md w-full relative overflow-hidden border-4 border-slate-200">
+            <button onclick="window.closeInfoModal()" class="absolute top-3 right-4 text-slate-400 hover:text-red-500 font-bold text-3xl transition-colors">&times;</button>
+            <h3 class="text-2xl font-display text-blue-900 mb-4 text-center">📖 Kılavuz</h3>
+            
+            <div class="bg-indigo-50 p-4 rounded-xl mb-4 border-2 border-indigo-100">
+                <h4 class="font-bold text-indigo-900 mb-2 text-sm">🎮 Oynanış</h4>
+                <ul class="text-xs text-indigo-800 space-y-1 font-semibold">
+                    <li>🔹 Yüzmek için <b>WASD</b> tuşlarını (veya ekrandaki yön tuşlarını) kullan.</li>
+                    <li>🔹 <b>❓ Soru Balonlarına</b> çarparak sürpriz bilgi yarışmasına katıl.</li>
+                    <li><span class="text-red-600">⚠️</span> <b>Avlanma Kuralı:</b> SPACE (veya AVLAN) tuşu ile sadece senden EN AZ 3 KADEME KÜÇÜK balıkları yiyebilirsin!</li>
+                    <li>🔴 <b>Ceza:</b> Eğer avlanırsan sana 10 Matematik Sorusu ceza ödevi atanır!</li>
+                </ul>
+            </div>
+            
+            <h4 class="font-bold text-slate-800 mb-2 text-sm">🐟 10 Aşamalı Evrim Ağacı</h4>
+            <div id="evolution-list" class="space-y-2 max-h-48 overflow-y-auto pr-2 text-xs">
+                <!-- Javascript ile doldurulacak -->
+            </div>
+        </div>
+    </div>
+
+    <div id="password-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden z-[130] flex items-center justify-center p-4">
+        <form onsubmit="window.changeAdminPassword(event)" class="bg-white p-6 md:p-8 rounded-3xl shadow-2xl max-w-md w-full border-4 border-blue-200 space-y-4">
+            <h3 class="text-2xl font-display text-blue-900">Admin Şifresini Değiştir</h3>
+            <label class="block text-sm font-bold text-slate-700">Mevcut şifre
+                <input id="admin-current-password" type="password" required autocomplete="current-password" class="mt-1 w-full p-3 border-2 border-slate-200 rounded-xl outline-none focus:border-blue-500">
+            </label>
+            <label class="block text-sm font-bold text-slate-700">Yeni şifre (en az 12 karakter)
+                <input id="admin-new-password" type="password" required minlength="12" maxlength="128" autocomplete="new-password" class="mt-1 w-full p-3 border-2 border-slate-200 rounded-xl outline-none focus:border-blue-500">
+            </label>
+            <label class="block text-sm font-bold text-slate-700">Yeni şifreyi doğrula
+                <input id="admin-confirm-password" type="password" required minlength="12" maxlength="128" autocomplete="new-password" class="mt-1 w-full p-3 border-2 border-slate-200 rounded-xl outline-none focus:border-blue-500">
+            </label>
+            <p id="password-error" class="hidden text-sm font-bold text-red-600"></p>
+            <div class="flex gap-3">
+                <button type="button" onclick="window.closePasswordModal()" class="w-1/2 bg-slate-100 text-slate-700 font-bold py-3 rounded-xl">Vazgeç</button>
+                <button type="submit" class="w-1/2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl">Şifreyi Kaydet</button>
+            </div>
+        </form>
+    </div>
+
+    <script type="module">
+        let isCloudReady = false;
+        let refreshTimer = null;
+        const API_URL = '/api';
+
+        async function apiRequest(path, options = {}) {
+            const response = await fetch(`${API_URL}/${path}`, {
+                credentials: 'same-origin',
+                ...options,
+                headers: { 'content-type': 'application/json', ...options.headers }
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.error || 'İstek tamamlanamadı.');
+            return payload;
+        }
+
+        // 10 Kademeli Yeni Balık Verisi
+        const FISH_DATA = [
+            { id: 1, name: 'Yavru Japon', minXp: 0, emoji: '🐟', starMulti: 1.0, baseSize: 40 },
+            { id: 2, name: 'Lepistes', minXp: 200, emoji: '🐠', starMulti: 1.1, baseSize: 50 },
+            { id: 3, name: 'Palyaço Balığı', minXp: 500, emoji: '🐡', starMulti: 1.2, baseSize: 65 },
+            { id: 4, name: 'Ahtapot', minXp: 1000, emoji: '🐙', starMulti: 1.3, baseSize: 80 },
+            { id: 5, name: 'Kalamar', minXp: 2000, emoji: '🦑', starMulti: 1.5, baseSize: 95 },
+            { id: 6, name: 'Kaplumbağa', minXp: 3500, emoji: '🐢', starMulti: 1.7, baseSize: 110 },
+            { id: 7, name: 'Yunus', minXp: 5500, emoji: '🐬', starMulti: 1.9, baseSize: 130 },
+            { id: 8, name: 'Köpek Balığı', minXp: 8000, emoji: '🦈', starMulti: 2.2, baseSize: 155 },
+            { id: 9, name: 'Balina', minXp: 12000, emoji: '🐋', starMulti: 2.6, baseSize: 185 },
+            { id: 10, name: 'Ejderha', minXp: 18000, emoji: '🐉', starMulti: 3.0, baseSize: 220 }
+        ];
+
+        window.users = []; window.homeworks = []; window.rewards = []; window.questions = [];
+        window.currentUser = null; window.activeTab = '';
+        let animationFrameId = null; let activeEntities = []; let myFishRef = null; 
+        const keys = { w: false, a: false, s: false, d: false, space: false };
+        let quizActive = false;
+
+        async function initCloud() {
+            const overlay = document.getElementById('loading-overlay');
+            const loadingText = document.getElementById('loading-text');
+
+            try {
+                loadingText.innerText = 'Güvenli bulut bağlantısı kuruluyor...';
+                const status = await apiRequest('health');
+                isCloudReady = status.ready;
+                if (!status.ready) throw new Error('Sunucu kurulumu tamamlanmamış.');
+            } catch (error) {
+                console.error('Güvenli sunucu bağlantısı kurulamadı.', error);
+                document.getElementById('cloud-status').innerText = '⚠️ Bağlantı Yok';
+                document.getElementById('cloud-status').classList.replace('bg-green-500', 'bg-red-500');
+                loadingText.innerText = error.message;
+            } finally {
+                buildEvolutionInfo();
+                setTimeout(() => {
+                    overlay.style.opacity = '0';
+                    setTimeout(() => {
+                        overlay.style.display = 'none';
+                        if (!window.currentUser) {
+                            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+                            document.getElementById('auth-view').classList.add('active');
+                        }
+                    }, 300);
+                }, 300);
+            }
+        }
+
+        function buildEvolutionInfo() {
+            const list = document.getElementById('evolution-list');
+            list.innerHTML = FISH_DATA.map((f, i) => `
+                <div class="flex items-center gap-3 p-2 bg-slate-50 border border-slate-100 rounded-lg">
+                    <span class="text-2xl w-8 text-center">${f.emoji}</span>
+                    <div class="flex-1 leading-tight">
+                        <p class="font-bold text-slate-800">${f.id}. ${f.name}</p>
+                        <p class="text-[10px] text-slate-500 font-bold">${f.minXp} XP (Çarpan: ${f.starMulti}x)</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function syncData() {
+            const snapshot = await apiRequest('data');
+            const oldFishId = window.currentUser?.currentFishId ?? 0;
+            window.currentUser = snapshot.user;
+            window.users = snapshot.users;
+            window.homeworks = snapshot.homeworks;
+            window.rewards = snapshot.rewards;
+            window.questions = snapshot.questions;
+            if (window.currentUser.role === 'student' && window.currentUser.currentFishId > oldFishId) {
+                const evolvedFish = FISH_DATA.find(f => f.id === window.currentUser.currentFishId);
+                if (evolvedFish) window.showModal('EVRİM GEÇİRDİN!', `Yeni formun: ${evolvedFish.name}. Gücün arttı!`, evolvedFish.emoji);
+            }
+            refreshUI();
+        }
+
+        function startRealtimeListeners() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            refreshTimer = setInterval(() => syncData().catch(error => console.error('Bulut eşitleme hatası:', error)), 5000);
+        }
+
+        function refreshUI() {
+            if(!window.currentUser) return;
+            if(window.currentUser.role === 'admin') window.updateAdminDashboard();
+            else { window.updateStatsUI(); if(window.activeTab === 'homeworks') window.renderHomeworks(); if(window.activeTab === 'store') window.renderStore(); }
+        }
+
+        async function dbAdd(colName, data) {
+            if (!isCloudReady) throw new Error('Güvenli bulut bağlantısı yok.');
+            await apiRequest('records', { method: 'POST', body: JSON.stringify({ operation: 'add', collection: colName, data }) });
+            await syncData();
+        }
+        async function dbUpdate(colName, id, data) {
+            if (!isCloudReady) throw new Error('Güvenli bulut bağlantısı yok.');
+            await apiRequest('records', { method: 'POST', body: JSON.stringify({ operation: 'update', collection: colName, id, data }) });
+            await syncData();
+        }
+        async function dbDelete(colName, id) {
+            if (!isCloudReady) throw new Error('Güvenli bulut bağlantısı yok.');
+            await apiRequest('records', { method: 'POST', body: JSON.stringify({ operation: 'delete', collection: colName, id }) });
+            await syncData();
+        }
+        function calculateFishLevel(xp) { const sorted = [...FISH_DATA].sort((a,b) => b.minXp - a.minXp); return sorted.find(t => xp >= t.minXp)?.id || 1; }
+
+        initCloud();
+
+        window.handleLogin = async function(e) {
+            e.preventDefault();
+            const uname = document.getElementById('auth-username').value.trim();
+            const pass = document.getElementById('auth-password').value;
+            const button = document.getElementById('login-btn');
+            button.disabled = true;
+            try {
+                await apiRequest('login', { method: 'POST', body: JSON.stringify({ username: uname, password: pass }) });
+                await syncData();
+                document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+                if (window.currentUser.role === 'admin') {
+                    document.getElementById('admin-view').classList.add('active');
+                    window.switchAdminTab('students');
+                } else {
+                    document.getElementById('student-view').classList.add('active');
+                    window.updateStatsUI(); window.switchTab('aquarium'); startAnimationLoop();
+                }
+                startRealtimeListeners();
+            } catch (error) {
+                window.showModal('Giriş yapılamadı', error.message, '❌');
+            } finally {
+                button.disabled = false;
+            }
+        };
+
+        window.logout = async function() {
+            try { await apiRequest('logout', { method: 'POST', body: '{}' }); } catch (error) { console.error(error); }
+            if (refreshTimer) clearInterval(refreshTimer);
+            refreshTimer = null;
+            window.currentUser = null; stopAnimationLoop(); clearEntities();
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('auth-view').classList.add('active');
+        };
+
+        window.switchTab = function(tabName) {
+            window.activeTab = tabName;
+            ['aquarium', 'colony', 'homeworks', 'store'].forEach(name => {
+                const btn = document.getElementById(`tab-${name}`);
+                const view = document.getElementById(`view-${name}`);
+                if (name === tabName) {
+                    btn.classList.add('bg-blue-600', 'text-white', 'shadow-md'); btn.classList.remove('bg-slate-100', 'text-slate-600');
+                    view.classList.remove('opacity-0', 'pointer-events-none');
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white', 'shadow-md'); btn.classList.add('bg-slate-100', 'text-slate-600');
+                    view.classList.add('opacity-0', 'pointer-events-none');
+                }
+            });
+
+            const hint = document.getElementById('controls-hint');
+            const mobileControls = document.getElementById('mobile-controls');
+            if(tabName === 'aquarium' || tabName === 'colony') {
+                hint.classList.remove('hidden');
+                mobileControls.classList.remove('hidden');
+            } else {
+                hint.classList.add('hidden');
+                mobileControls.classList.add('hidden');
+            }
+
+            clearEntities();
+            if(tabName === 'aquarium') spawnEntity(window.currentUser, 'entity-container-aquarium', true);
+            else if (tabName === 'colony') spawnColony();
+            else if (tabName === 'homeworks') window.renderHomeworks();
+            else if (tabName === 'store') window.renderStore();
+        };
+
+        window.switchAdminTab = function(tName) {
+            document.querySelectorAll('.admin-tab-btn').forEach(b => { b.classList.remove('text-blue-600', 'border-blue-600'); b.classList.add('text-slate-500', 'border-transparent'); });
+            document.getElementById(`atab-${tName}`).classList.add('text-blue-600', 'border-blue-600');
+            document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`acontent-${tName}`).classList.add('active');
+        };
+        
+        window.updateAdminDashboard = function() {
+            const sList = document.getElementById('admin-students-list');
+            const students = window.users.filter(u => u.role === 'student');
+            sList.innerHTML = students.length ? students.map(s => `
+                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl text-sm border border-slate-100">
+                    <div><b class="text-blue-900">${s.username}</b> <span class="bg-blue-500 text-white px-1.5 py-0.5 rounded text-[10px] ml-1 uppercase">${s.classId}</span><br><span class="text-slate-500 text-xs">${s.xp} XP | ${s.stars} ⭐</span></div>
+                    <button onclick="window.deleteUser('${s.dbId}')" class="text-red-400 font-bold px-2 py-1 bg-white rounded border hover:bg-red-50">&times;</button>
+                </div>
+            `).join('') : '<p class="text-xs text-slate-500">Öğrenci yok.</p>';
+
+            const hList = document.getElementById('admin-homeworks-list');
+            hList.innerHTML = window.homeworks.length ? window.homeworks.map(h => `
+                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl text-sm border border-slate-100">
+                    <div>
+                        <b class="text-green-900">${h.title}</b> ${h.targetUser ? `<span class="bg-red-100 text-red-700 px-1 rounded text-xs ml-1">Ceza</span>` : ''}
+                        <div class="mt-1 text-xs text-slate-500">${h.baseXp} XP, ${h.baseStars} ⭐ | Hedef: ${h.targetClass || h.targetUser || 'Tümü'}</div>
+                    </div>
+                    <button onclick="window.deleteHomework('${h.dbId}')" class="text-red-400 font-bold px-2 py-1 bg-white rounded border hover:bg-red-50">&times;</button>
+                </div>
+            `).join('') : '<p class="text-xs text-slate-500">Ödev yok.</p>';
+
+            window.renderApprovalsList(); window.renderAdminRewards(); window.renderAdminQuestions();
+        };
+
+        window.handleAddUser = async function(e) {
+            e.preventDefault();
+            try {
+                await apiRequest('students', { method: 'POST', body: JSON.stringify({
+                    username: document.getElementById('new-user-name').value,
+                    password: document.getElementById('new-user-pass').value,
+                    classId: document.getElementById('new-user-class').value
+                }) });
+                e.target.reset();
+                await syncData();
+                window.showModal('Öğrenci eklendi', 'Öğrenci hesabı güvenli biçimde buluta kaydedildi.', '🐠');
+            } catch (error) {
+                window.showModal('Kayıt yapılamadı', error.message, '❌');
+            }
+        };
+        window.deleteUser = async function(id) { await dbDelete('users', id); };
+
+        window.handleAddHomework = async function(e) {
+            e.preventDefault();
+            await dbAdd('homeworks', {
+                title: document.getElementById('new-hw-title').value, desc: document.getElementById('new-hw-desc').value,
+                targetClass: document.getElementById('new-hw-class').value.trim().toUpperCase() || '', targetUser: '',
+                baseXp: parseInt(document.getElementById('new-hw-xp').value), baseStars: parseInt(document.getElementById('new-hw-stars').value)
+            }); e.target.reset();
+        };
+        window.deleteHomework = async function(id) { await dbDelete('homeworks', id); };
+
+        window.renderAdminRewards = function() {
+            const list = document.getElementById('admin-rewards-list');
+            list.innerHTML = window.rewards.length ? window.rewards.map(r => `
+                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl text-sm border border-slate-100">
+                    <div><b class="text-yellow-900">${r.name}</b> (${r.type === 'virtual' ? 'Sanal' : 'Fiziksel'}) <br><span class="text-xs text-slate-500">${r.price} ⭐ | ${r.emoji}</span></div>
+                    <button onclick="window.deleteReward('${r.dbId}')" class="text-red-400 font-bold px-2 py-1 bg-white rounded border hover:bg-red-50">&times;</button>
+                </div>
+            `).join('') : '<p class="text-xs text-slate-500">Ödül yok.</p>';
+        };
+
+        window.toggleRewardTypeInputs = function() {
+            const type = document.getElementById('new-rew-type').value;
+            if(type === 'virtual') {
+                document.getElementById('virtual-options-group').classList.remove('hidden');
+                document.getElementById('physical-options-group').classList.add('hidden');
+            } else {
+                document.getElementById('virtual-options-group').classList.add('hidden');
+                document.getElementById('physical-options-group').classList.remove('hidden');
+            }
+        };
+
+        window.handleAddReward = async function(e) {
+            e.preventDefault();
+            const type = document.getElementById('new-rew-type').value;
+            const price = parseInt(document.getElementById('new-rew-price').value);
+            let name = '', emoji = '', accType = 'none', effectClass = '';
+
+            if(type === 'virtual') {
+                name = document.getElementById('new-rew-vname').value;
+                const accVal = document.getElementById('new-rew-acc-type').value.split('|');
+                accType = accVal[0]; effectClass = accVal[1]; emoji = accVal[2];
+            } else {
+                name = document.getElementById('new-rew-pname').value;
+                emoji = document.getElementById('new-rew-emoji').value;
+            }
+
+            await dbAdd('rewards', { type, price, name, emoji, accType, effectClass });
+            e.target.reset();
+        };
+        
+        window.deleteReward = async function(id) { await dbDelete('rewards', id); };
+
+        window.renderAdminQuestions = function() {
+            const list = document.getElementById('admin-questions-list');
+            list.innerHTML = window.questions.length ? window.questions.map(q => `
+                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl text-sm border border-slate-100">
+                    <div><b class="text-purple-900">${q.text}</b> <span class="bg-purple-100 text-purple-700 px-1 rounded text-xs ml-1">${q.classId || 'Tümü'}</span><br><span class="text-xs text-slate-500">Doğru: ${['A','B','C','D'][q.correctIdx]}</span></div>
+                    <button onclick="window.deleteQuestion('${q.dbId}')" class="text-red-400 font-bold px-2 py-1 bg-white rounded border hover:bg-red-50">&times;</button>
+                </div>
+            `).join('') : '<p class="text-xs text-slate-500">Soru yok.</p>';
+        };
+
+        window.handleAddQuestion = async function(e) {
+            e.preventDefault();
+            const text = document.getElementById('new-q-text').value;
+            const options = [
+                document.getElementById('new-q-opt0').value,
+                document.getElementById('new-q-opt1').value,
+                document.getElementById('new-q-opt2').value,
+                document.getElementById('new-q-opt3').value
+            ];
+            const correctIdx = parseInt(document.getElementById('new-q-correct').value);
+            const classId = document.getElementById('new-q-class').value.trim().toUpperCase();
+
+            await dbAdd('questions', { text, options, correctIdx, classId });
+            e.target.reset();
+        };
+
+        window.deleteQuestion = async function(id) { await dbDelete('questions', id); };
+        
+        window.renderApprovalsList = function() {
+            const list = document.getElementById('admin-approvals-list'); let count = 0; let html = '';
+            window.users.filter(u=>u.role==='student').forEach(student => {
+                (student.homeworks||[]).filter(hw=>hw.status==='pending').forEach(pendingHw => {
+                    const hData = window.homeworks.find(h=>h.dbId===pendingHw.hwId);
+                    if(hData) {
+                        count++;
+                        html += `
+                        <div class="flex justify-between items-center p-4 bg-indigo-50 border border-indigo-200 rounded-xl mb-2">
+                            <div>
+                                <p class="font-bold text-sm text-indigo-900">${student.username} <span class="text-[10px] bg-indigo-200 px-1 rounded uppercase">${student.classId}</span></p>
+                                <p class="text-xs text-indigo-700 mt-1">${hData.title}</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="window.approveHomework('${student.dbId}', '${hData.dbId}', true)" class="bg-green-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold">Onayla</button>
+                                <button onclick="window.approveHomework('${student.dbId}', '${hData.dbId}', false)" class="bg-red-400 text-white px-3 py-1.5 rounded-lg text-xs font-bold">Reddet</button>
+                            </div>
+                        </div>`;
+                    }
+                });
+            });
+            const badge = document.getElementById('pending-badge');
+            if(count>0) { badge.innerText=count; badge.classList.remove('hidden'); } else { badge.classList.add('hidden'); }
+            list.innerHTML = html || '<p class="text-xs text-slate-500">Onay bekleyen yok.</p>';
+        };
+
+        window.approveHomework = async function(sId, hId, isAppr) {
+            const student = window.users.find(u=>u.dbId===sId); const hwData = window.homeworks.find(h=>h.dbId===hId);
+            if(!student||!hwData) return;
+            let hws = [...(student.homeworks||[])]; const idx = hws.findIndex(h=>h.hwId===hId); if(idx===-1) return;
+            if(isAppr) {
+                hws[idx].status = 'approved';
+                const fish = FISH_DATA.find(f=>f.id===student.currentFishId)||FISH_DATA[0];
+                const nxp = student.xp + hwData.baseXp;
+                await dbUpdate('users', sId, { homeworks: hws, xp: nxp, stars: student.stars + Math.floor(hwData.baseStars * fish.starMulti), currentFishId: calculateFishLevel(nxp) });
+            } else { hws.splice(idx,1); await dbUpdate('users', sId, { homeworks: hws }); }
+        };
+
+        window.updateStatsUI = function() {
+            if(!window.currentUser || window.currentUser.role === 'admin') return;
+            const fish = FISH_DATA.find(f => f.id === window.currentUser.currentFishId) || FISH_DATA[0];
+            
+            document.getElementById('topbar-username').innerText = window.currentUser.username;
+            document.getElementById('topbar-class').innerText = window.currentUser.classId;
+            document.getElementById('topbar-stars').innerText = `${window.currentUser.stars} ⭐`;
+            document.getElementById('topbar-xp').innerText = `${window.currentUser.xp} XP`;
+            
+            let auraClass = ''; let accHtml = '';
+            (window.currentUser.accessories || []).forEach(acc => {
+                if(acc.accType === 'aura') auraClass = acc.effectClass; else accHtml += `<span class="accessory acc-${acc.accType}">${acc.emoji}</span>`;
+            });
+            document.getElementById('topbar-fish-icon').innerHTML = `<div class="fish-container ${auraClass}" style="font-size: 28px">${fish.emoji}${accHtml}</div>`;
+        };
+
+        window.renderHomeworks = function() {
+            const container = document.getElementById('homework-list');
+            // Hedef Sınıf Tümü, veya kendi sınıfı, veya özel olarak kendine atanmış ceza ödevleri
+            const myHws = window.homeworks.filter(h => h.targetUser === window.currentUser.username || (!h.targetUser && (h.targetClass === '' || h.targetClass === window.currentUser.classId)));
+            
+            if(myHws.length === 0) { container.innerHTML = '<p class="text-slate-500 font-bold bg-white p-6 rounded-2xl col-span-2 text-center text-sm border">Ödev bulunmuyor.</p>'; return; }
+
+            container.innerHTML = myHws.map(hw => {
+                const rec = (window.currentUser.homeworks || []).find(r => r.hwId === hw.dbId);
+                let btnHtml = ''; let badgeHtml = '';
+                
+                if(hw.targetUser) badgeHtml = `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded text-[10px] font-bold border border-red-200">CEZA</span>`;
+
+                if(!rec) btnHtml = `<button onclick="window.submitHomework('${hw.dbId}')" class="bg-blue-600 text-white font-bold py-2.5 rounded-xl w-full text-sm">Teslim Et</button>`;
+                else if (rec.status === 'pending') btnHtml = `<button disabled class="bg-slate-200 text-slate-400 font-bold py-2.5 rounded-xl w-full text-sm">Onay Bekliyor</button>`;
+                else if (rec.status === 'approved') btnHtml = `<div class="bg-green-50 text-green-600 text-center py-2.5 rounded-xl font-bold border border-green-200 w-full text-sm">Tamamlandı</div>`;
+
+                return `
+                <div class="p-4 rounded-2xl border-2 bg-white border-slate-100 flex flex-col">
+                    <div class="flex justify-between items-start mb-2 gap-2">
+                        <h4 class="text-base font-bold text-slate-800 leading-tight">${hw.title} ${badgeHtml}</h4>
+                    </div>
+                    <p class="text-slate-500 mb-4 text-xs bg-slate-50 p-3 rounded-lg flex-1 border border-slate-100">${hw.desc}</p>
+                    <div class="flex gap-2 text-xs font-bold justify-center mb-3">
+                        <span class="bg-blue-50 text-blue-700 px-2 py-1.5 rounded-lg border border-blue-100 flex-1 text-center">+${hw.baseXp} XP</span>
+                        <span class="bg-yellow-50 text-yellow-700 px-2 py-1.5 rounded-lg border border-yellow-100 flex-1 text-center">+${hw.baseStars} ⭐</span>
+                    </div>
+                    ${btnHtml}
+                </div>`;
+            }).join('');
+        };
+        
+        window.submitHomework = async function(id) {
+            try {
+                await apiRequest('homework-submissions', { method: 'POST', body: JSON.stringify({ homeworkId: id }) });
+                await syncData();
+                window.showModal("Gönderildi", "Onaylandığında ödüllerin gelecek!", "⏳");
+                window.renderHomeworks();
+            } catch (error) { window.showModal('Teslim edilemedi', error.message, '❌'); }
+        };
+
+        window.renderStore = function() {
+            const vCont = document.getElementById('virtual-store-list'); const pCont = document.getElementById('physical-store-list');
+            vCont.innerHTML = ''; pCont.innerHTML = '';
+            
+            window.rewards.forEach(item => {
+                const canAfford = window.currentUser.stars >= item.price;
+                const isOwned = item.type === 'virtual' && (window.currentUser.accessories || []).some(a => a.dbId === item.dbId);
+                let btnHtml = isOwned ? `<button disabled class="w-full mt-auto font-bold py-1.5 rounded-lg bg-green-100 text-green-700 text-xs">Kuşanıldı</button>` 
+                    : `<button onclick="window.buyItem('${item.dbId}')" class="w-full mt-auto font-bold py-1.5 rounded-lg flex items-center justify-center gap-1 text-xs ${canAfford ? 'bg-yellow-400 text-yellow-900 border border-yellow-500' : 'bg-slate-100 text-slate-400 border border-slate-200'}">⭐ ${item.price}</button>`;
+
+                const card = `
+                <div class="bg-white p-3 rounded-2xl border-2 ${isOwned ? 'border-green-300' : 'border-slate-100'} flex flex-col items-center text-center shadow-sm h-36">
+                    <div class="text-4xl mb-2 mt-1 ${item.accType === 'aura' ? item.effectClass : ''} p-1">${item.emoji}</div>
+                    <h4 class="font-bold text-slate-700 mb-2 leading-tight text-[10px] sm:text-xs z-10">${item.name}</h4>
+                    ${btnHtml}
+                </div>`;
+                if(item.type === 'virtual') vCont.innerHTML += card; else pCont.innerHTML += card;
+            });
+            if(!vCont.innerHTML) vCont.innerHTML = '<p class="text-xs text-slate-500 col-span-full">Eşya yok.</p>';
+            if(!pCont.innerHTML) pCont.innerHTML = '<p class="text-xs text-slate-500 col-span-full">Ödül yok.</p>';
+        };
+
+        window.buyItem = async function(id) {
+            const item = window.rewards.find(i=>i.dbId===id); if(!item) return;
+            if(window.currentUser.stars >= item.price) {
+                try {
+                    await apiRequest('purchases', { method: 'POST', body: JSON.stringify({ rewardId: id }) });
+                    await syncData();
+                    if(item.type === 'virtual') window.showModal("Satın Alındı", `${item.name} kuşandın!`, item.emoji);
+                    else window.showModal("Talep İletildi", `${item.name} öğretmene bildirildi.`, item.emoji);
+                } catch (error) { window.showModal('Satın alınamadı', error.message, '❌'); }
+            }
+        };
+
+        function clearEntities() { activeEntities.forEach(e => e.el.remove()); activeEntities = []; myFishRef = null; }
+        function spawnEntity(user, containerId, isMe) {
+            const container = document.getElementById(containerId); if(!container) return;
+            const fData = FISH_DATA.find(f => f.id === user.currentFishId) || FISH_DATA[0];
+            const el = document.createElement('div'); el.className = `moving-entity ${isMe ? 'is-me' : ''}`;
+            
+            let accHtml = ''; let auraClass = '';
+            (user.accessories||[]).forEach(acc => { if(acc.accType === 'aura') auraClass = acc.effectClass; else accHtml += `<span class="accessory acc-${acc.accType}">${acc.emoji}</span>`; });
+
+            el.innerHTML = `<div class="fish-container ${auraClass}" style="font-size: ${fData.baseSize}px;">${fData.emoji}${accHtml}</div><div class="username-tag">${user.username}</div>`;
+            const bounds = getBounds();
+            const x = isMe ? bounds.w/2 : Math.random() * (bounds.w - 100);
+            const y = isMe ? bounds.h/2 : Math.random() * (bounds.h - 150) + 50;
+            
+            const spd = 2 / (fData.id * 0.3 + 1); 
+            container.appendChild(el);
+            const entity = { type: 'fish', userDbId: user.dbId, username: user.username, el, x, y, vx: isMe?0:(Math.random()-0.5)*spd*3, vy: isMe?0:(Math.random()-0.5)*spd, width: fData.baseSize, facingRight: true, isMe, level: fData.id };
+            activeEntities.push(entity); if(isMe) myFishRef = entity;
+        }
+
+        function spawnColony() {
+            const mates = window.users.filter(u => u.role === 'student' && u.classId === window.currentUser.classId);
+            document.getElementById('ocean-size-text').innerText = `${mates.length} Balık Kolonisi`;
+            mates.forEach(u => spawnEntity(u, 'entity-container-colony', u.username === window.currentUser.username));
+        }
+        function getBounds() { const m = document.getElementById('main-area'); return { w: m.clientWidth, h: m.clientHeight }; }
+
+        function startAnimationLoop() {
+            if(animationFrameId) cancelAnimationFrame(animationFrameId); let frameCount = 0;
+            function animate() {
+                if(quizActive) { animationFrameId = requestAnimationFrame(animate); return; }
+                frameCount++; const bounds = getBounds();
+                if(frameCount % 200 === 0 && Math.random() < 0.7 && activeEntities.filter(e=>e.type==='bubble').length < 2) {
+                    const qList = window.questions.filter(q=>q.classId===''||q.classId===window.currentUser.classId);
+                    if(qList.length) {
+                        const el = document.createElement('div'); el.className = `moving-entity question-bubble`; el.innerHTML = `❓`;
+                        document.getElementById(window.activeTab === 'aquarium' ? 'entity-container-aquarium' : 'entity-container-colony').appendChild(el);
+                        activeEntities.push({ type: 'bubble', el, qData: qList[Math.floor(Math.random()*qList.length)], x: Math.random()*(bounds.w-50), y: Math.random()*(bounds.h-100)+50, vx: (Math.random()-0.5)*1.5, vy: (Math.random()-0.5)*1.5, width: 40, isMe: false });
+                    }
+                }
+
+                for (let i = activeEntities.length - 1; i >= 0; i--) {
+                    let ent = activeEntities[i];
+                    if(ent.isMe) {
+                        const spd = 4;
+                        if(keys.w) ent.y -= spd; if(keys.s) ent.y += spd;
+                        if(keys.a) { ent.x -= spd; ent.facingRight = false; } if(keys.d) { ent.x += spd; ent.facingRight = true; }
+                    } else { ent.x += ent.vx; ent.y += ent.vy; }
+
+                    if (ent.x <= 0) { ent.x = 0; if(!ent.isMe){ent.vx*=-1; ent.facingRight=true;} }
+                    if (ent.x + ent.width >= bounds.w) { ent.x = bounds.w - ent.width; if(!ent.isMe){ent.vx*=-1; ent.facingRight=false;} }
+                    if (ent.y <= 0) { ent.y = 0; if(!ent.isMe) ent.vy*=-1; }
+                    if (ent.y + ent.width >= bounds.h - 20) { ent.y = bounds.h - 20 - ent.width; if(!ent.isMe) ent.vy*=-1; }
+
+                    const scaleX = ent.facingRight ? -1 : 1;
+                    if(ent.type === 'fish') {
+                        ent.el.style.transform = `translate(${ent.x}px, ${ent.y}px) scaleX(${scaleX})`;
+                        const tag = ent.el.querySelector('.username-tag'); if(tag) tag.style.transform = `scaleX(${scaleX})`;
+                    } else { ent.el.style.transform = `translate(${ent.x}px, ${ent.y}px)`; }
+
+                    if(ent.type === 'bubble' && myFishRef && Math.hypot(myFishRef.x - ent.x, myFishRef.y - ent.y) < (myFishRef.width/2 + ent.width/2)) {
+                        openQuizModal(ent.qData); ent.el.remove(); activeEntities.splice(i, 1);
+                    }
+                }
+                animationFrameId = requestAnimationFrame(animate);
+            } animate();
+        }
+        function stopAnimationLoop() { if(animationFrameId) cancelAnimationFrame(animationFrameId); }
+
+        window.addEventListener('keydown', (e) => {
+            if(quizActive) return; const k = e.key.toLowerCase(); if(keys.hasOwnProperty(k)) keys[k] = true;
+            if(k === ' ' && window.currentUser && window.activeTab === 'colony') { e.preventDefault(); tryHunt(); }
+        });
+        window.addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if(keys.hasOwnProperty(k)) keys[k] = false; });
+
+        // Touch Controls (Mobile)
+        function bindTouch(id, key) {
+            const el = document.getElementById(id);
+            if(!el) return;
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
+            el.addEventListener('mousedown', (e) => { keys[key] = true; });
+            el.addEventListener('mouseup', (e) => { keys[key] = false; });
+            el.addEventListener('mouseleave', (e) => { keys[key] = false; });
+        }
+        bindTouch('btn-up', 'w'); bindTouch('btn-down', 's'); bindTouch('btn-left', 'a'); bindTouch('btn-right', 'd');
+        const btnHunt = document.getElementById('btn-hunt');
+        if(btnHunt) {
+            btnHunt.addEventListener('touchstart', (e) => { e.preventDefault(); tryHunt(); });
+            btnHunt.addEventListener('mousedown', (e) => { tryHunt(); });
+        }
+
+        async function tryHunt() {
+            if(!myFishRef || window.activeTab !== 'colony') return;
+            
+            let eaten = false;
+            for(let i=0; i<activeEntities.length; i++) {
+                let prey = activeEntities[i];
+                if(prey.isMe || prey.type !== 'fish') continue;
+
+                if(Math.hypot(myFishRef.x - prey.x, myFishRef.y - prey.y) < (myFishRef.width/2 + prey.width/2)) {
+                    if((myFishRef.level - prey.level) >= 3) {
+                        
+                        // Avcı Ödülü
+                        await apiRequest('hunts', { method: 'POST', body: JSON.stringify({ preyId: prey.userDbId }) });
+                        await syncData();
+                        
+                        prey.el.remove(); activeEntities.splice(i, 1);
+                        window.showModal('Av Başarılı!', `${prey.username} balığını yedin! Ona 10 soruluk matematik cezası gitti.`, '🦈', 100, 0);
+                        eaten = true; break;
+                    }
+                }
+            }
+            if(!eaten) { window.showModal('Başarısız', 'Avlanmak için avının senden en az 3 seviye küçük olması ve ona çok yaklaşman gerekir!', '⚠️'); }
+        }
+
+        // Quiz Logic
+        let currentQ = null;
+        function openQuizModal(q) {
+            quizActive = true; currentQ = q;
+            document.getElementById('quiz-question-text').innerText = q.text;
+            const mult = (FISH_DATA.find(f=>f.id===window.currentUser.currentFishId)||FISH_DATA[0]).starMulti;
+            document.getElementById('quiz-reward-text').innerText = `+50 XP, +${Math.floor(5*mult)} ⭐`;
+            document.getElementById('quiz-options').innerHTML = q.options.map((opt, i) => 
+                `<button onclick="window.answerQuiz(${i})" class="w-full text-left p-3 rounded-xl border border-slate-200 hover:bg-blue-50 font-bold text-sm transition-colors">${['A','B','C','D'][i]}) ${opt}</button>`
+            ).join('');
+            document.getElementById('quiz-modal').classList.remove('hidden');
+        }
+        window.answerQuiz = async function(idx) {
+            window.closeQuizModal();
+            try {
+                const result = await apiRequest('answers', { method: 'POST', body: JSON.stringify({ questionId: currentQ.dbId, answer: idx }) });
+                if(result.correct) {
+                    await syncData();
+                    window.showModal("Doğru!", "Ödülleri kaptın.", "🎯", result.xp, result.stars);
+                } else { window.showModal("Yanlış", "Bir dahaki sefere!", "💦"); }
+            } catch (error) { window.showModal('Cevap kaydedilemedi', error.message, '❌'); }
+        };
+        window.closeQuizModal = function() { document.getElementById('quiz-modal').classList.add('hidden'); quizActive = false; };
+        
+        // Modal Controls
+        window.showModal = function(tit, txt, icn, xp=null, st=null) {
+            document.getElementById('modal-title').innerText=tit; document.getElementById('modal-text').innerText=txt; document.getElementById('modal-icon').innerText=icn;
+            const rw = document.getElementById('modal-rewards');
+            if(xp!==null) { rw.classList.remove('hidden'); document.getElementById('modal-xp-val').innerText=xp; document.getElementById('modal-star-val').innerText=st; } else rw.classList.add('hidden');
+            document.getElementById('modal-overlay').classList.remove('hidden'); setTimeout(()=>document.getElementById('modal-overlay').classList.remove('opacity-0'), 10);
+        };
+        window.closeModal = function() { document.getElementById('modal-overlay').classList.add('opacity-0'); setTimeout(()=>document.getElementById('modal-overlay').classList.add('hidden'), 300); };
+        window.showInfoModal = function() { document.getElementById('info-modal').classList.remove('hidden'); };
+        window.closeInfoModal = function() { document.getElementById('info-modal').classList.add('hidden'); };
+        window.openPasswordModal = function() {
+            document.getElementById('password-error').classList.add('hidden');
+            document.getElementById('password-modal').classList.remove('hidden');
+        };
+        window.closePasswordModal = function() {
+            document.getElementById('password-modal').classList.add('hidden');
+            document.getElementById('password-modal').querySelector('form').reset();
+        };
+        window.changeAdminPassword = async function(e) {
+            e.preventDefault();
+            const currentPassword = document.getElementById('admin-current-password').value;
+            const newPassword = document.getElementById('admin-new-password').value;
+            const confirmation = document.getElementById('admin-confirm-password').value;
+            const error = document.getElementById('password-error');
+            if (newPassword !== confirmation) {
+                error.innerText = 'Yeni şifreler eşleşmiyor.';
+                error.classList.remove('hidden');
+                return;
+            }
+            try {
+                await apiRequest('password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
+                window.closePasswordModal();
+                window.showModal('Şifre değiştirildi', 'Yeni şifreniz güvenli biçimde kaydedildi.', '🔐');
+            } catch (requestError) {
+                error.innerText = requestError.message;
+                error.classList.remove('hidden');
+            }
+        };
+        
+        window.addEventListener('resize', () => { if(myFishRef) { const b = getBounds(); myFishRef.x=Math.min(myFishRef.x,b.w-myFishRef.width); myFishRef.y=Math.min(myFishRef.y,b.h-myFishRef.width); } });
+    </script>
+</body>
+</html>
